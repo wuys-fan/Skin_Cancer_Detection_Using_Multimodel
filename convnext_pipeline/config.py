@@ -15,7 +15,7 @@ else:
 IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 16
 EPOCHS_WARMUP = 5
-EPOCHS_FINETUNE = 15
+EPOCHS_FINETUNE = 30
 NUM_CLASSES = 8
 TRAIN_DIR = r'D:\Study\Do_An_Chuyen_Nganh\data\split_data\ISIC_2019\train'
 VAL_DIR = r'D:\Study\Do_An_Chuyen_Nganh\data\split_data\ISIC_2019\val'
@@ -52,6 +52,28 @@ CONFUSION_MATRIX_PATH_IMAGE = os.path.join(
 METRICS_PLOT_PATH_IMAGE = os.path.join(
     RESULTS_DIR_IMAGE,
     'training_metrics_convnext_base_image_only.png'
+)
+# Cross Attention
+RESULTS_DIR_CROSS_ATTENTION = r'D:\Study\Do_An_Chuyen_Nganh\results\convnext_cross_attention'
+MODEL_SAVE_PATH_CROSS_ATTENTION = os.path.join(
+    RESULTS_DIR_CROSS_ATTENTION,
+    'convnext_base_cross_attention_isic2019.pth'
+)
+BEST_MODEL_PATH_CROSS_ATTENTION = os.path.join(
+    RESULTS_DIR_CROSS_ATTENTION,
+    'convnext_base_best_model_cross_attention_isic2019.pth'
+)
+EXCEL_PATH_CROSS_ATTENTION = os.path.join(
+    RESULTS_DIR_CROSS_ATTENTION,
+    'training_results_cross_attention.xlsx'
+)
+CONFUSION_MATRIX_PATH_CROSS_ATTENTION = os.path.join(
+    RESULTS_DIR_CROSS_ATTENTION,
+    'confusion_matrix_convnext_base_cross_attention.png'
+)
+METRICS_PLOT_PATH_CROSS_ATTENTION = os.path.join(
+    RESULTS_DIR_CROSS_ATTENTION,
+    'training_metrics_convnext_base_cross_attention.png'
 )
 
 GT_CSV_PATH = r'D:\Study\Do_An_Chuyen_Nganh\data\ISIC_2019\ISIC_2019_Training_GroundTruth.csv'

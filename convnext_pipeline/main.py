@@ -1,5 +1,6 @@
 import os
 import sys
+from tokenize import String
 
 # Add current directory to path for absolute imports when running as script
 if __name__ == "__main__":
@@ -21,21 +22,26 @@ try:
         EPOCHS_WARMUP,
         MODEL_SAVE_PATH_FUSE,
         MODEL_SAVE_PATH_IMAGE,
+        MODEL_SAVE_PATH_CROSS_ATTENTION,
         NUM_CLASSES,
         SHUTDOWN_COMMAND,
         BEST_MODEL_PATH_FUSE,
         BEST_MODEL_PATH_IMAGE,
+        BEST_MODEL_PATH_CROSS_ATTENTION,
         EXCEL_PATH_FUSE,
         EXCEL_PATH_IMAGE,
+        EXCEL_PATH_CROSS_ATTENTION,
         CONFUSION_MATRIX_PATH_FUSE,
         CONFUSION_MATRIX_PATH_IMAGE,
+        CONFUSION_MATRIX_PATH_CROSS_ATTENTION,
         METRICS_PLOT_PATH_FUSE,
         METRICS_PLOT_PATH_IMAGE,
+        METRICS_PLOT_PATH_CROSS_ATTENTION,
         ensure_parent_dir,
     )
     from .data import create_dataloaders
     from .evaluation import evaluate_predictions, plot_confusion_matrix, plot_training_metrics
-    from .modeling import build_fusion_model, build_model, load_checkpoint
+    from .modeling import build_fusion_model, build_model, build_cross_attention_model, load_checkpoint
     from .trainer import merge_histories, train_model
 except ImportError:
     # Fall back to absolute imports (when running as script)
@@ -45,21 +51,26 @@ except ImportError:
         EPOCHS_WARMUP,
         MODEL_SAVE_PATH_FUSE,
         MODEL_SAVE_PATH_IMAGE,
+        MODEL_SAVE_PATH_CROSS_ATTENTION,
         NUM_CLASSES,
         SHUTDOWN_COMMAND,
         BEST_MODEL_PATH_FUSE,
         BEST_MODEL_PATH_IMAGE,
+        BEST_MODEL_PATH_CROSS_ATTENTION,
         EXCEL_PATH_FUSE,
         EXCEL_PATH_IMAGE,
+        EXCEL_PATH_CROSS_ATTENTION,
         CONFUSION_MATRIX_PATH_FUSE,
         CONFUSION_MATRIX_PATH_IMAGE,
+        CONFUSION_MATRIX_PATH_CROSS_ATTENTION,
         METRICS_PLOT_PATH_FUSE,
         METRICS_PLOT_PATH_IMAGE,
+        METRICS_PLOT_PATH_CROSS_ATTENTION,
         ensure_parent_dir,
     )
     from data import create_dataloaders
     from evaluation import evaluate_predictions, plot_confusion_matrix, plot_training_metrics
-    from modeling import build_fusion_model, build_model, load_checkpoint
+    from modeling import build_fusion_model, build_model, build_cross_attention_model, load_checkpoint
     from trainer import merge_histories, train_model
 
 def _freeze_backbone(model):
@@ -107,17 +118,18 @@ def _build_scheduler(optimizer):
         verbose=True
     )
 
-
-def run_training(use_metadata: bool = True):
+model_mode ="cross_attention"
+def run_training(model_type: str = model_mode):
     """
     Run training pipeline.
     
     Args:
-        use_metadata: If True, use metadata along with images. If False, image-only mode.
+        model_type: Type of model to train. Options: 'image', 'fusion', 'cross_attention'
     """
+    use_metadata = model_type in ['fusion', 'cross_attention']
     train_ds, val_ds, train_loader, val_loader = create_dataloaders(use_metadata=use_metadata)
 
-    if use_metadata:
+    if model_type == 'fusion':
         print(f"FUSION MODE: Image + Metadata (Missing Indicator 13 chiều) - Method: Concat")
         model = build_fusion_model(num_classes=NUM_CLASSES)
         best_model_path = BEST_MODEL_PATH_FUSE
@@ -125,17 +137,14 @@ def run_training(use_metadata: bool = True):
         excel_path = EXCEL_PATH_FUSE
         confusion_path = CONFUSION_MATRIX_PATH_FUSE
         metrics_path = METRICS_PLOT_PATH_FUSE
-        # Try to load backbone from image-only model
-        if os.path.exists(BEST_MODEL_PATH_IMAGE):
-            try:
-                old = build_model()
-                old.load_state_dict(torch.load(BEST_MODEL_PATH_IMAGE, map_location=DEVICE))
-                model.backbone.load_state_dict(old.features.state_dict())
-                print("✅ ĐÃ LOAD BACKBONE TỪ IMAGE-ONLY MODEL!")
-            except Exception as e:
-                print(f"⚠️ Không thể load backbone từ model cũ: {e}")
-        else:
-            print("ℹ️ Không tìm thấy checkpoint image-only để load backbone.")
+    elif model_type == 'cross_attention':
+        print(f"CROSS ATTENTION MODE: Image + Metadata (Missing Indicator 13 chiều) - Method: Cross Attention")
+        model = build_cross_attention_model(num_classes=NUM_CLASSES)
+        best_model_path = BEST_MODEL_PATH_CROSS_ATTENTION
+        model_save_path = MODEL_SAVE_PATH_CROSS_ATTENTION
+        excel_path = EXCEL_PATH_CROSS_ATTENTION
+        confusion_path = CONFUSION_MATRIX_PATH_CROSS_ATTENTION
+        metrics_path = METRICS_PLOT_PATH_CROSS_ATTENTION
     else:
         print("IMAGE-ONLY MODE: Image without Metadata")
         model = build_model(num_classes=NUM_CLASSES)
@@ -150,6 +159,7 @@ def run_training(use_metadata: bool = True):
 
     if resume_training:
         print("🔥 Tiếp tục fine-tuning từ checkpoint...")
+        print(f"🔥 đang sử dụng mode {model_mode}")
         _unfreeze_all(model)
         optimizer = _build_optimizer(model)
         scheduler = _build_scheduler(optimizer)
@@ -166,7 +176,9 @@ def run_training(use_metadata: bool = True):
             excel_path=excel_path
         )
     else:
+
         print("🔥 Bắt đầu warm-up training...")
+        print(f"🔥 đang sử dụng mode {model_mode}")
         _freeze_backbone(model)
         # For fusion model, need to include meta_branch in warmup optimizer
         if hasattr(model, 'meta_branch'):
@@ -230,11 +242,8 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='ConvNeXt Training Pipeline')
     parser.add_argument('--mode', type=str, default='image', 
-                        choices=['image', 'fusion'],
-                        help='Training mode: image (image-only), fusion (concat metadata)')
+                        choices=['image', 'fusion', 'cross_attention'],
+                        help='Training mode: image (image-only), fusion (concat metadata), cross_attention (cross attention metadata)')
     args = parser.parse_args()
     
-    if args.mode == 'image':
-        run_training(use_metadata=False)
-    elif args.mode == 'fusion':
-        run_training(use_metadata=True)
+    run_training(model_type=args.mode)

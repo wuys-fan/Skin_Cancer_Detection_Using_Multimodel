@@ -162,7 +162,7 @@ class ConvNeXtCrossAttention(nn.Module):
             nn.GELU(),
             nn.LayerNorm(256),
             nn.Dropout(0.5),
-            nn.Linear(256, num_classes)
+            nn.Linear(512, num_classes)
         )
 
     def forward(self, x, meta):
