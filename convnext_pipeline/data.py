@@ -1,9 +1,9 @@
-# data.py (THAY THẾ TOÀN BỘ NỘI DUNG CŨ)
+# data.py (ĐÃ ĐƯỢC CẬP NHẬT)
 import os
 import pandas as pd
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from PIL import Image
 import torchvision.transforms as transforms
 
@@ -20,6 +20,7 @@ class ISIC2019MetadataDataset(Dataset):
     def __init__(self, root_dir: str, labels_csv: str, metadata_csv: str, transform=None):
         self.root_dir = root_dir
         self.transform = transform
+        self.classes = CLASSES
 
         df_labels = pd.read_csv(labels_csv)
         df_meta   = pd.read_csv(metadata_csv)
@@ -98,13 +99,58 @@ def build_transforms():
         ])
     }
 
+def _create_weighted_sampler(dataset):
+    """Create weighted random sampler to balance classes."""
+    # Get labels for all samples
+    labels = [dataset.info_dict[dataset.samples[i][1]]['label'] for i in range(len(dataset))]
+    labels = np.array(labels)
+    
+    # Calculate class counts
+    class_counts = np.bincount(labels, minlength=len(CLASSES))
+    
+    # Calculate class weights: inverse frequency (class with fewer samples gets higher weight)
+    # Add small epsilon to avoid division by zero
+    class_weights = 1.0 / (class_counts + 1e-8)
+    
+    # Normalize weights so they sum to number of classes (common practice)
+    # This ensures weights are proportional but not too extreme
+    class_weights = class_weights / class_weights.sum() * len(CLASSES)
+    
+    # Assign weight to each sample based on its class
+    sample_weights = class_weights[labels]
+    
+    # Convert to torch tensor (required by WeightedRandomSampler)
+    sample_weights = torch.from_numpy(sample_weights).float()
+    
+    return WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(dataset),
+        replacement=True
+    )
+
 def create_dataloaders(use_metadata=False):
     if use_metadata:
         transform = build_transforms()
         train_ds = ISIC2019MetadataDataset(TRAIN_DIR, GT_CSV_PATH, GT_METADATA_CSV, transform['train'])
         val_ds = ISIC2019MetadataDataset(VAL_DIR, GT_CSV_PATH, GT_METADATA_CSV, transform['val'])
-        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
-        val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+        
+        # Create weighted sampler for training data
+        train_sampler = _create_weighted_sampler(train_ds)
+        
+        train_loader = DataLoader(
+            train_ds, 
+            batch_size=BATCH_SIZE, 
+            sampler=train_sampler,  # Use sampler instead of shuffle
+            num_workers=0, 
+            pin_memory=True
+        )
+        val_loader = DataLoader(
+            val_ds, 
+            batch_size=BATCH_SIZE, 
+            shuffle=False, 
+            num_workers=0, 
+            pin_memory=True
+        )
         return train_ds, val_ds, train_loader, val_loader
     else:
         # Giữ nguyên code cũ của bạn (ImageFolder)
@@ -112,6 +158,42 @@ def create_dataloaders(use_metadata=False):
         transform = build_transforms()
         train_ds = datasets.ImageFolder(TRAIN_DIR, transform['train'])
         val_ds = datasets.ImageFolder(VAL_DIR, transform['val'])
-        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, pin_memory=True)
-        val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, pin_memory=True)
+        
+        # Create weighted sampler for training data
+        # Get labels for all samples
+        labels = [train_ds.samples[i][1] for i in range(len(train_ds))]
+        labels = np.array(labels)
+        
+        # Calculate class counts
+        num_classes = len(train_ds.classes)
+        class_counts = np.bincount(labels, minlength=num_classes)
+        
+        # Calculate class weights: inverse frequency
+        class_weights = 1.0 / (class_counts + 1e-8)
+        class_weights = class_weights / class_weights.sum() * num_classes  # Normalize
+        
+        # Assign weight to each sample based on its class
+        sample_weights = class_weights[labels]
+        sample_weights = torch.from_numpy(sample_weights).float()
+        
+        train_sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(train_ds),
+            replacement=True
+        )
+        
+        train_loader = DataLoader(
+            train_ds, 
+            batch_size=BATCH_SIZE, 
+            sampler=train_sampler, 
+            num_workers=0, 
+            pin_memory=True
+        )
+        val_loader = DataLoader(
+            val_ds, 
+            batch_size=BATCH_SIZE, 
+            shuffle=False, 
+            num_workers=0, 
+            pin_memory=True
+        )
         return train_ds, val_ds, train_loader, val_loader
