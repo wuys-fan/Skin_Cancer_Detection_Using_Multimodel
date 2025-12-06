@@ -15,7 +15,7 @@ else:
 IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 16
 EPOCHS_WARMUP = 5
-EPOCHS_FINETUNE = 30
+EPOCHS_FINETUNE = 50
 NUM_CLASSES = 8
 TRAIN_DIR = r'D:\Study\Do_An_Chuyen_Nganh\data\split_data\ISIC_2019\train'
 VAL_DIR = r'D:\Study\Do_An_Chuyen_Nganh\data\split_data\ISIC_2019\val'
