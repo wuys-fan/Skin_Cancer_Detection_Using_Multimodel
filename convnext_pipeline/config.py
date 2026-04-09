@@ -15,7 +15,7 @@ else:
 IMAGE_SIZE = (224, 224)
 BATCH_SIZE = 16
 EPOCHS_WARMUP = 5
-EPOCHS_FINETUNE = 30
+EPOCHS_FINETUNE = 50
 NUM_CLASSES = 8
 TRAIN_DIR = None  # Đường dẫn thư mục train
 VAL_DIR = None    # Đường dẫn thư mục val

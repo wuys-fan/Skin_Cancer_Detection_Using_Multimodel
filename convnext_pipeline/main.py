@@ -118,7 +118,7 @@ def _build_scheduler(optimizer):
         verbose=True
     )
 
-model_mode ="cross_attention"
+model_mode ="fusion"
 def run_training(model_type: str = model_mode):
     """
     Run training pipeline.
